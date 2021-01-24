@@ -1093,7 +1093,7 @@ def keboard_bot(data, ord=None):
 @dp.message_handler(commands=['/start', ])
 def start_bot(data, ord=None):
     tunnel = data['message']['chat']['id']
-    result_text = f"Hi {emoji.emojize(':waving_hand:')}"
+    result_text = f"Hi {emoji.emojize(':waving_hand:')} .Коммент можно ввести через точку"
     reply_markup = settings_user.template_start()
     message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
     return message, bot.api_url
