@@ -1201,4 +1201,4 @@ def do_echo():
 
 
 if __name__ == '__main__':
-    set_webhook('Insert API_TOKEN')
+    set_webhook('')
