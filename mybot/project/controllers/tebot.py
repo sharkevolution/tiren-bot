@@ -1104,6 +1104,10 @@ def dummy_message(data):
     """ Заглушка для message """
     text = data['message'].get('text')
     result_text = f"Функция [{text}] в разработке."
+
+    logging.info(f"dummy_message: {text}")
+    logging.info(f'Data: {data}')
+    
     res = {'chat_id': data['message']['chat']['id'], 'text': result_text}
     return res, bot.api_url
 
@@ -1112,10 +1116,12 @@ def dummy_callback(data):
     """ Заглушка для callback_query """
 
     planner.start_proc()  # Run planner in different process
-    logging.info("I am!")
-
     text = data['callback_query']['data']
     result_text = f"Функция [ {text} ] в разработке."
+
+    logging.info(f"dummy_callback: {text}")
+    logging.info(f'Data: {data}')
+
     res = {"callback_query_id": data['callback_query']['id'], "text": result_text, "cache_time": 3}
     return res, bot.api_answer
 
