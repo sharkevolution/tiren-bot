@@ -1107,7 +1107,7 @@ def dummy_message(data):
 
     logging.info(f"dummy_message: {text}")
     logging.info(f'Data: {data}')
-    
+
     res = {'chat_id': data['message']['chat']['id'], 'text': result_text}
     return res, bot.api_url
 
@@ -1135,7 +1135,7 @@ def do_echo():
 
     dredis.variable_init(bot)  # get or set settings users regions to bot.dict_init
     data = request.json
-    # logging.info(data)
+    logging.info(data)
 
     if bot.last_id < data['update_id']:
         bot.last_id = data['update_id']  # Отсекаем старые сообщения
