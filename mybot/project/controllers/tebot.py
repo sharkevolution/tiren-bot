@@ -240,9 +240,10 @@ class Dispatcher:
 # ********************************************************
 
 if API_TOKEN := os.environ.get("API_TOKEN"):
-    set_webhook(API_TOKEN)
-    bot = Bot(API_TOKEN)
-    dp = Dispatcher(bot)
+    logging.info(API_TOKEN)
+
+bot = Bot(API_TOKEN)
+dp = Dispatcher(bot)
 
 # ********************************************************
 
@@ -1200,5 +1201,4 @@ def do_echo():
 
 
 if __name__ == '__main__':
-    if API_TOKEN := os.environ.get("API_TOKEN"):
-        set_webhook(API_TOKEN)
+    set_webhook('Insert API_TOKEN')
