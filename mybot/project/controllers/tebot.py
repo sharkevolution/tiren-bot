@@ -28,7 +28,6 @@ from mybot.project.controllers import treeadr
 
 
 def set_webhook(bottoken):
-
     data = {"url": "https://tiren-bot.herokuapp.com/api/v1/echo"}
     data = {"url": "https://tirentest.herokuapp.com/api/v1/echo"}
     headers = {'Content-type': 'application/json'}
@@ -199,6 +198,7 @@ class Bot:
         self.admin_chat_id = 471125560  # Admin chat
         self.rdot = '.'
 
+
 class Dispatcher:
     """ handler messages command """
 
@@ -238,18 +238,17 @@ class Dispatcher:
 
 
 # ********************************************************
-API_TOKEN = '528159377:AAEI3Y3zTYv18e2qBp_nXBBMxLZU1uUhPHg'  # tiren
-# API_TOKEN = '1533915251:AAHFV5qpwUa_5LXvaRbFq0fi5oUGASfhgUU'  # test
-bot = Bot(API_TOKEN)
-dp = Dispatcher(bot)
 
+if API_TOKEN := os.environ.get("API_TOKEN"):
+    set_webhook(API_TOKEN)
+    bot = Bot(API_TOKEN)
+    dp = Dispatcher(bot)
 
 # ********************************************************
 
 
 @dp.message_handler(commands=['/tr', ])
 def send_file(data, ord=None):
-
     if ord == '/tr':
         tunnel = data['message']['chat']['id']
 
@@ -403,7 +402,6 @@ def fsm_address(data, ord=None):
 
 @dp.message_handler(commands=[])
 def gear_del_handler_adr(data, ord=None):
-
     tunnel = data['message']['chat']['id']
     nDict = dredis.read_variable()
     bot.dict_init = nDict
@@ -462,7 +460,6 @@ def gear_del_addess_user(data, ord=None):
 
 @dp.message_handler(commands=[])
 def gear_del_handler_city(data, ord=None):
-
     tunnel = data['message']['chat']['id']
     nDict = dredis.read_variable()
     bot.dict_init = nDict
@@ -520,7 +517,6 @@ def gear_del_city_user(data, ord=None):
 
 @dp.message_handler(commands=[])
 def gear_add_handler_city(data, ord=None):
-
     tunnel = data['message']['chat']['id']
     nDict = dredis.read_variable()
     bot.dict_init = nDict
@@ -736,7 +732,6 @@ def dynamic_shops(data, ord=None):
 
 @dp.message_handler(commands=[])
 def delete_item_send(data, ord=None):
-
     logging.info('delete_item_send')
     tunnel = data['message']['chat']['id']
 
@@ -875,14 +870,13 @@ def enter_to_list(data, ord=None):
 
 @dp.callback_handler(commands=['ent_shops'])
 def return_to_shops(data, ord=None):
-
     r = callback_hello_ok(data, 'ok!')
     tunnel = data['callback_query']['message']['chat']['id']
     chat_user = bot.users[tunnel]
 
     result_text = 'Выберите адрес из списка'
     logging.info('Return to SHOPS')
-    logging.info(chat_user)
+    logging.info(str(chat_user))
 
     reply_markup, chat_user = settings_user.template_shops(bot.dict_init, bot.users[tunnel])
 
@@ -1157,7 +1151,7 @@ def do_echo():
             # curl = bot.api_url
             if ord := data['message'].get('text'):
                 chat_user = user_start_update(data['message']['chat']['id'],
-                                       data['message']['from'])
+                                              data['message']['from'])
                 chat_user.put_redis_last_message_id(data)
                 bot.users[chat_user.__name__] = chat_user
 
@@ -1206,4 +1200,5 @@ def do_echo():
 
 
 if __name__ == '__main__':
-    set_webhook(API_TOKEN)
+    if API_TOKEN := os.environ.get("API_TOKEN"):
+        set_webhook(API_TOKEN)
