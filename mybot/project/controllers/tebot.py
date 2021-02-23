@@ -32,6 +32,7 @@ def set_webhook(bottoken):
         data = {"url": URL_BOT}
     else:
         data = {"url": "https://tiren-bot.herokuapp.com/api/v1/echo"}
+
     headers = {'Content-type': 'application/json'}
     baseURL = f'https://api.telegram.org/bot{bottoken}/setWebhook'
 
@@ -879,7 +880,7 @@ def return_to_shops(data, ord=None):
 
     result_text = 'Выберите адрес из списка'
     logging.info('Return to SHOPS')
-    logging.info(str(chat_user))
+    # logging.info(str(chat_user))
 
     reply_markup, chat_user = settings_user.template_shops(bot.dict_init, bot.users[tunnel])
 
@@ -1203,4 +1204,4 @@ def do_echo():
 
 
 if __name__ == '__main__':
-    set_webhook('')
+    set_webhook(input('Please, Input API_TOKEN > '))
