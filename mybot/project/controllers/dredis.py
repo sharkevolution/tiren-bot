@@ -26,6 +26,9 @@ def variable_init(bot):
         # save to redis
         redisClient.set('settings_data', msgpack.packb(newDict))
 
+        if redisClient.exists("settings_data"):
+            bot.dict_init = msgpack.unpackb(redisClient.get('settings_data'))
+
 
 def save_variable(newDict):
 
