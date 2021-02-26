@@ -4,4 +4,3 @@
 venv
 mybot/__pycache__/*.pyc
 mybot/.idea
-mybot/telhook.py

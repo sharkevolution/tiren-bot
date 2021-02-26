@@ -1421,7 +1421,6 @@ def do_echo():
     curl = None
 
     try:
-        logging.info('DO ECHO')
         dredis.variable_init(bot)  # get or set settings users regions to bot.dict_init
         bot.subscription = dredis.read_subscription()  # get subscriptions
     except Exception as ex:
