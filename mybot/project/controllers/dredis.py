@@ -14,9 +14,11 @@ def variable_init(bot):
     redisClient = redis.from_url(os.environ.get("REDIS_URL"))
 
     if redisClient.exists("settings_data"):
+        logging.info('Get data from Redis? settings data')
         bot.dict_init = msgpack.unpackb(redisClient.get('settings_data'))
         # logging.info(bot.dict_init)
     else:
+        logging.info('No base Redis, load data and save to Redis and Reload')
         file_path = [RESOURCES_PATH, 'settings', 'data.txt']
         djs = os.path.join(*file_path)
 

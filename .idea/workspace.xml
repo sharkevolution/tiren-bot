@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="ed39c9a5-43f8-43d2-8321-56964b448895" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/mybot/project/controllers/tebot.py" beforeDir="false" afterPath="$PROJECT_DIR$/mybot/project/controllers/tebot.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mybot/project/controllers/dredis.py" beforeDir="false" afterPath="$PROJECT_DIR$/mybot/project/controllers/dredis.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
