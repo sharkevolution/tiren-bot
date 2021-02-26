@@ -1501,5 +1501,5 @@ def do_echo():
 
 
 if __name__ == '__main__':
-    URL_BOT = {"url": "https://tirentest.herokuapp.com/api/v1/echo"}
+    URL_BOT = {"url": "https://tiren-bot.herokuapp.com/api/v1/echo"}
     set_webhook(URL_BOT, input('Please, Input API_TOKEN > '))
