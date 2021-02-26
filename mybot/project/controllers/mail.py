@@ -20,6 +20,7 @@ def send_mail(base_mail, to_mail, user_name, user_text):
 
 
 def send_sms(user_name, user_text):
+
     if password := os.environ.get("SMS_PASS"):
         login = '380732218247'  # phone number
         alphaName = 'gsm1'  # string, sender id (alpha-name)

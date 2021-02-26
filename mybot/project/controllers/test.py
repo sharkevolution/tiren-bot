@@ -196,6 +196,53 @@
 # print(y2)
 # print(y3)
 
+# from datetime import datetime
+#
+# now = datetime.now()
+# date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
+#
+# print(date_time)
+#
+# d = (1, 2)
+
+# import emoji
+#
+# txt0 = emoji.emojize('  :zzz:')
+# txt1 = emoji.emojize('  :check_mark:')
+# txt2 = emoji.emojize('  :cross_mark:')
+#
+# print(len(txt0), len(txt1), len(txt2))
+
+# from datetime import datetime
+#
+# uid = {'02/05/2021, 12:23:25': 0, '02/05/2021, 12:23:25': 0}
+#
+# item_list = list(uid.items())
+# count = len(item_list)
+#
+# now = datetime.now()
+# uid_date = datetime.now()
+#
+# item_list = list(uid.items())
+# count = len(item_list)
+#
+# while count > 0:
+#     p = item_list[count - 1]
+#     date_string = p[0]
+#     uid_date = datetime.strptime(date_string, "%m/%d/%Y, %H:%M:%S")
+#     duration = now - uid_date
+#     duration_in_s = duration.total_seconds()
+#     hours = divmod(duration_in_s, 3600)[0]
+#     print(hours)
+#     count -= 1
 
 
-
+# from datetime import datetime
+# from dateutil.tz import tzutc, tzlocal
+# from pytz import timezone
+#
+# kiev = timezone('Europe/Kiev')
+#
+# p = datetime.now( kiev)
+#
+# print(p)

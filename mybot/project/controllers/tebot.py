@@ -6,14 +6,16 @@
 # https://habr.com/ru/company/ruvds/blog/325522/
 # https://www.networkworld.com/article/3276349/copying-and-renaming-files-on-linux.html
 
-
-import bottle
-from bottle import view, request, redirect
-
 import io
 import os
 import json
 import copy
+from datetime import datetime
+from pytz import timezone
+
+import bottle
+from bottle import view, request, redirect
+
 import requests
 import logging
 import redis
@@ -27,12 +29,8 @@ from mybot.project.controllers import chtime
 from mybot.project.controllers import treeadr
 
 
-def set_webhook(bottoken):
-    if URL_BOT := os.environ.get("URL_BOT"):
-        data = {"url": URL_BOT}
-    else:
-        data = {"url": "https://tiren-bot.herokuapp.com/api/v1/echo"}
-
+def set_webhook(data, bottoken):
+    # prod = {"url": "https://tiren-bot.herokuapp.com/api/v1/echo"}
     headers = {'Content-type': 'application/json'}
     baseURL = f'https://api.telegram.org/bot{bottoken}/setWebhook'
 
@@ -129,6 +127,10 @@ class User:
         self.current_task = {}  # Current task
         self.redisClient = redis.from_url(os.environ.get("REDIS_URL"))
 
+        self.selected_subscriber = 0
+        self.selected_sub_data = {}
+        self.selected_change_datetime = None
+
     def get_redis(self):
 
         res = {}
@@ -167,8 +169,9 @@ class User:
         self.redisClient.set(self.__name__, new_pack)
 
     def create_task(self):
-        self.current_task = {'shop': None, 'delivery': None, 'weight': None, 'dlv_time': None,
-                             'status_send': 'pending'}
+        self.current_task = {'shop': None, 'delivery': None, 'weight': None,
+                             'dlv_time': None, 'status_send': {str(self.__name__): 'pending'}
+                             }
 
     def put_task(self):
         pass
@@ -193,6 +196,9 @@ class Bot:
 
         self.users = {}  # List of users
         self.dict_init = {}  # Custom logic
+
+        self.subscription = {}  # Messages from users who sent the message
+        self.selected_subscriber = 0  #
 
         self.last_id = 0  # Last ID telegram (not message)
         self.last_chat = None  # Last chat
@@ -241,12 +247,14 @@ class Dispatcher:
 
 
 # ********************************************************
-
 if API_TOKEN := os.environ.get("API_TOKEN"):
     logging.info(API_TOKEN)
+else:
+    logging.info('Not API_TOKEN')
 
 bot = Bot(API_TOKEN)
 dp = Dispatcher(bot)
+
 
 # ********************************************************
 
@@ -615,6 +623,40 @@ def enter_add_address(data, ord=None):
     return message, bot.api_url
 
 
+@dp.callback_handler(commands=['ent_send', ])
+def enter_to_send(data, ord=None):
+    logging.info('enter_to_send')
+    callback_hello_ok(data, 'Send data for aggregate')
+
+    tunnel = data['callback_query']['message']['chat']['id']
+    chat_user = bot.users[tunnel]
+
+    kiev = timezone('Europe/Kiev')
+    now = datetime.now(kiev)
+    date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
+
+    if bot.tasks.get(chat_user.from_id):
+        crt = dict(bot.tasks[chat_user.from_id])
+
+        if agr := bot.subscription.get(str(chat_user.from_id)):
+            agr.append((date_time, crt))
+            bot.subscription[str(chat_user.from_id)] = agr
+        else:
+            logging.info('new subscribe')
+            bot.subscription[str(chat_user.from_id)] = [[date_time, crt]]
+
+        # logging.info(bot.subscription)
+        dredis.save_subscription(bot.subscription)  # save to Redis
+        # logging.info(dredis.read_subscription())
+
+    # logging.info('bot subscr')
+
+    result_text = "Список доступен для консолидации и автоматически будет удален через 24 часа"
+    reply_markup = settings_user.template_start()
+    message = {'chat_id': tunnel, 'text': result_text}
+    return message, bot.api_url
+
+
 @dp.callback_handler(commands=['ent_main', ])
 def enter_top(data, ord=None):
     callback_hello_ok(data, 'Jump to TOP')
@@ -624,6 +666,12 @@ def enter_top(data, ord=None):
     chat_user = bot.users[tunnel]
     chat_user.create_task()  # Create task
     bot.users[tunnel] = chat_user
+
+    reply_markup = settings_user.template_remove_keboard()
+    message = {'chat_id': tunnel, 'text': 'Переход на главную', 'reply_markup': reply_markup}
+
+    r = requests.post(bot.api_url, data=json.dumps(message), headers=bot.headers)
+    assert r.status_code == 200
 
     result_text = f"Hi {emoji.emojize(':waving_hand:')} .Коммент можно написать через точку"
     reply_markup = settings_user.template_start()
@@ -687,7 +735,6 @@ def dynamic_delivery(data, ord=None):
     logging.info(ord)
     tunnel = data['message']['chat']['id']
 
-    logging.info(ord)
     result_text = 'Выберите перевозчика'
     reply_markup, chat_user = settings_user.template_delivery(bot.dict_init, bot.users[tunnel])
 
@@ -705,6 +752,211 @@ def dynamic_delivery(data, ord=None):
     bot.users[tunnel] = chat_user
 
     message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
+    return message, bot.api_url
+
+
+@dp.message_handler(commands=[])
+def consolidate(data, ord):
+    logging.info('Consolidate')
+    logging.info(ord)
+
+    tunnel = data['message']['chat']['id']
+    chat_user = bot.users[tunnel]
+    result_text = f'{ord}'
+
+    if ord == 'Принять':
+
+        result_text = 'Данные добавлены в личный список'
+        if tmp_dict := bot.tasks.get(tunnel):
+
+            # Найти элементы subscription и изменить статус на добавлено
+            settings_user.change_status_subscription(bot, chat_user, status='combined')
+            dredis.save_subscription(bot.subscription)
+
+            logging.info(tmp_dict)
+            logging.info('------------------------')
+            logging.info(chat_user.selected_sub_data)
+
+            new_tmp = {**tmp_dict, **chat_user.selected_sub_data}
+
+            logging.info('************************')
+            logging.info(new_tmp)
+
+            bot.tasks[tunnel] = new_tmp
+        else:
+
+            settings_user.change_status_subscription(bot, chat_user, status='combined')
+            dredis.save_subscription(bot.subscription)
+            bot.tasks[tunnel] = {**chat_user.selected_sub_data}
+
+    message = {'chat_id': tunnel, 'text': result_text}
+
+    return message, bot.api_url
+
+
+@dp.message_handler(commands=[])
+def reject_sub_data(data, ord):
+    logging.info('Reject')
+    logging.info(ord)
+
+    tunnel = data['message']['chat']['id']
+    chat_user = bot.users[tunnel]
+    result_text = f'{ord}'
+
+    if ord == 'Отклонить':
+        result_text = 'Данные отмечены как нежелательные'
+        if tmp_dict := bot.tasks.get(tunnel):
+
+            # Найти элементы subscription и изменить статус на добавлено
+            settings_user.change_status_subscription(bot, chat_user, status='rejected')
+            dredis.save_subscription(bot.subscription)
+
+        else:
+            settings_user.change_status_subscription(bot, chat_user, status='rejected')
+            dredis.save_subscription(bot.subscription)
+
+            # bot.tasks[tunnel] = {}
+            # bot.tasks[tunnel] = chat_user.selected_sub_data
+
+    message = {'chat_id': tunnel, 'text': result_text}
+
+    return message, bot.api_url
+
+
+@dp.message_handler(commands=[])
+def back_sub_users(data, ord=None):
+    tunnel = data['message']['chat']['id']
+    chat_user = bot.users[tunnel]
+    result_text = 'Просмотрите сообщения пользователей перед консолидацией'
+
+    reply_markup, commands_ = settings_user.template_subscription(bot)
+
+    # Update commands wrapper
+    for b in commands_[:-1]:
+        chat_user.pull_user_commands[b] = dynamic_sub_users
+
+    # event TOP
+    back = commands_[-1]
+    logging.info('TOP')
+    logging.info(back)
+    chat_user.pull_user_commands[back] = start_bot
+
+    bot.users[tunnel] = chat_user
+
+    message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
+
+    return message, bot.api_url
+
+
+@dp.message_handler(commands=[])
+def back_sub_data(data, ord=None):
+    logging.info('back to subscriptions detail')
+    tunnel = data['message']['chat']['id']
+    chat_user = bot.users[tunnel]
+
+    for b in bot.subscription:
+        if b == chat_user.selected_subscriber:
+            if me := bot.users.get(int(b)):
+                ord = ' '.join([me.first_name, me.last_name, b])
+                break
+
+    result_text = f'Выберите сообщение от {ord}'
+    reply_markup, commands_ = settings_user.template_sub_datetime(bot, chat_user, ord)
+
+    for b in commands_[:-2]:  # Update commands wrapper
+        chat_user.pull_user_commands[b] = dynamic_sub_data
+
+    back = commands_[-2]  # функция обработки нажатия К именам
+    chat_user.pull_user_commands[back] = back_sub_users
+
+    back = commands_[-1]  # event TOP
+    chat_user.pull_user_commands[back] = start_bot
+
+    bot.users[tunnel] = chat_user
+    message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
+
+    return message, bot.api_url
+
+
+@dp.message_handler(commands=[])
+def dynamic_sub_data(data, ord=None):
+    logging.info('List of subscriptions detail')
+    logging.info(ord)
+    tunnel = data['message']['chat']['id']
+    chat_user = bot.users[tunnel]
+
+    chat_user.selected_change_datetime = ord  # User select datetime
+    reply_markup, commands_, result_text = settings_user.template_sub_print(bot, chat_user, ord)
+
+    chat_user.pull_user_commands[commands_[0]] = consolidate  # функция обработки нажатия принять
+    chat_user.pull_user_commands[commands_[1]] = reject_sub_data  # функция обработки нажатия Отклонить
+    chat_user.pull_user_commands[commands_[2]] = back_sub_data  # функция обработки нажатия К датам
+    chat_user.pull_user_commands[commands_[3]] = back_sub_users  # функция обработки нажатия К именам
+
+    # event TOP
+    back = commands_[-1]
+    logging.info('TOP')
+    logging.info(back)
+    chat_user.pull_user_commands[back] = start_bot
+
+    bot.users[tunnel] = chat_user
+    message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
+
+    return message, bot.api_url
+
+
+@dp.message_handler(commands=[])
+def dynamic_sub_users(data, ord=None):
+    logging.info('List of subscriptions users')
+    tunnel = data['message']['chat']['id']
+    chat_user = bot.users[tunnel]
+
+    result_text = f'Выберите сообщение от {ord}'
+    reply_markup, commands_ = settings_user.template_sub_datetime(bot, chat_user, ord)
+
+    # Update commands wrapper
+    for b in commands_[:-2]:
+        chat_user.pull_user_commands[b] = dynamic_sub_data
+
+    back = commands_[-2]
+    chat_user.pull_user_commands[back] = back_sub_users  # функция обработки нажатия К именам
+
+    # event TOP
+    back = commands_[-1]
+    logging.info('TOP')
+    logging.info(back)
+    chat_user.pull_user_commands[back] = start_bot
+
+    bot.users[tunnel] = chat_user
+
+    message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
+    return message, bot.api_url
+
+
+@dp.callback_handler(commands=['aggregate', ])
+def dynamic_aggregate(data, ord=None):
+    callback_hello_ok(data, 'Aggregate')
+
+    tunnel = data['callback_query']['message']['chat']['id']
+    chat_user = bot.users[tunnel]
+    result_text = 'Просмотрите сообщения пользователей перед консолидацией'
+
+    reply_markup, commands_ = settings_user.template_subscription(bot)
+
+    # Update commands wrapper
+    for b in commands_[:-1]:
+        chat_user.pull_user_commands[b] = dynamic_sub_users
+
+    # event TOP
+    back = commands_[-1]
+    logging.info('TOP')
+    logging.info(back)
+    chat_user.pull_user_commands[back] = start_bot
+
+    bot.users[tunnel] = chat_user
+
+    message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
+
     return message, bot.api_url
 
 
@@ -746,6 +998,11 @@ def delete_item_send(data, ord=None):
 
         if tmp_dict := bot.tasks.get(tunnel):
             if ord in tmp_dict:
+
+                # Очистка данных для консолидации от других пользов
+                chat_user.selected_subscriber = 0
+                chat_user.selected_sub_data = {}
+
                 logging.info(ord)
                 tmp_dict.pop(ord)  # delete item from dict
                 bot.tasks[tunnel] = tmp_dict
@@ -795,6 +1052,11 @@ def delete_send(data, ord=None):
         del bot.tasks[tunnel]
         chat_user.send_list = []
         bot.users[tunnel] = chat_user
+
+        # Очистка данных для консолидации от других пользов
+        chat_user.selected_subscriber = 0
+        chat_user.selected_sub_data = {}
+
     else:
         logging.info('not found')
 
@@ -821,8 +1083,15 @@ def edit_send(data, ord=None):
     r = callback_hello_ok(data, 'ok!')
     chat_id = data['callback_query']['message']['chat']['id']
 
-    _tmp = bot.tasks[chat_id]
-    reply_markup, chat_user = settings_user.template_tasks_to_send(_tmp, bot.users[chat_id], bot.rdot)
+    # _tmp = bot.tasks[chat_id]
+    # logging.info('Add to sd list ******************')
+    # logging.info(_tmp)
+
+    reply_markup, chat_user = settings_user.template_tasks_to_send(bot.tasks[chat_id],
+                                                                   bot.users[chat_id],
+                                                                   bot.rdot)
+
+    logging.info(chat_user.send_list)
 
     for b in chat_user.send_list:
         chat_user.pull_user_commands[b] = delete_item_send
@@ -880,7 +1149,7 @@ def return_to_shops(data, ord=None):
 
     result_text = 'Выберите адрес из списка'
     logging.info('Return to SHOPS')
-    # logging.info(str(chat_user))
+    logging.info(chat_user)
 
     reply_markup, chat_user = settings_user.template_shops(bot.dict_init, bot.users[tunnel])
 
@@ -985,7 +1254,7 @@ def enter(data, ord=None):
                 # Add tasks to the dict from send
                 crs = copy.deepcopy(chat_user.current_task)
 
-                ## Join name
+                # Join name
                 nm = ', '.join([crs['shop'], crs['delivery'], crs['weight'], crs['dlv_time'], ])
 
                 if tmp_ := bot.tasks.get(chat_id):
@@ -1092,7 +1361,7 @@ def keboard_bot(data, ord=None):
 @dp.message_handler(commands=['/start', ])
 def start_bot(data, ord=None):
     tunnel = data['message']['chat']['id']
-    result_text = f"Hi {emoji.emojize(':waving_hand:')} .Коммент можно ввести через точку"
+    result_text = f"Hi {emoji.emojize(':waving_hand:')} .Коммент можно написать через точку"
     reply_markup = settings_user.template_start()
     message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
     return message, bot.api_url
@@ -1102,10 +1371,6 @@ def dummy_message(data):
     """ Заглушка для message """
     text = data['message'].get('text')
     result_text = f"Функция [{text}] в разработке."
-
-    logging.info(f"dummy_message: {text}")
-    logging.info(f'Data: {data}')
-
     res = {'chat_id': data['message']['chat']['id'], 'text': result_text}
     return res, bot.api_url
 
@@ -1114,26 +1379,56 @@ def dummy_callback(data):
     """ Заглушка для callback_query """
 
     planner.start_proc()  # Run planner in different process
+    logging.info("I am!")
+
     text = data['callback_query']['data']
     result_text = f"Функция [ {text} ] в разработке."
-
-    logging.info(f"dummy_callback: {text}")
-    logging.info(f'Data: {data}')
-
     res = {"callback_query_id": data['callback_query']['id'], "text": result_text, "cache_time": 3}
     return res, bot.api_answer
+
+
+def reload_bot(data):
+    """ Перезагрузка бота (не все пользователи)"""
+
+    chat_user = data['message']['chat']['id']
+
+    result_text = f"Сессия устарела или команда неизвестна"
+    res = {'chat_id': data['message']['chat']['id'], 'text': result_text}
+    message = {'chat_id': chat_user, 'text': result_text}
+
+    r = requests.post(bot.api_url, data=json.dumps(message), headers=bot.headers)
+    assert r.status_code == 200
+
+    reply_markup = settings_user.template_remove_keboard()
+    message = {'chat_id': chat_user, 'text': 'Перезагрузка на стартовую страницу /start',
+               'reply_markup': reply_markup}
+
+    r = requests.post(bot.api_url, data=json.dumps(message), headers=bot.headers)
+    assert r.status_code == 200
+
+    result_text = f"Hi {emoji.emojize(':waving_hand:')} .Коммент можно написать через точку"
+    reply_markup = settings_user.template_start()
+    message = {'chat_id': chat_user, 'text': result_text, 'reply_markup': reply_markup}
+    return message, bot.api_url
 
 
 @bottle.route('/api/v1/echo', method='POST')
 def do_echo():
     """ Main """
 
+    logging.info('Do echo')
     message = {}
     curl = None
 
-    dredis.variable_init(bot)  # get or set settings users regions to bot.dict_init
+    try:
+        dredis.variable_init(bot)  # get or set settings users regions to bot.dict_init
+        bot.subscription = dredis.read_subscription()  # get subscriptions
+    except Exception as ex:
+        logging.info(f'Error load from Redis: {ex}')
+    # logging.info(bot.subscription)
+
     data = request.json
-    logging.info(data)
+    # logging.info(data)
 
     if bot.last_id < data['update_id']:
         bot.last_id = data['update_id']  # Отсекаем старые сообщения
@@ -1182,11 +1477,13 @@ def do_echo():
                             chat_user.fsm_location = [None, None]
                             logging.info('Bad FSM')
                             # Сообщение что ожидался ввод строки
-
                             message, curl = dummy_message(data)
                         else:
                             # Start FSM
                             message, curl = chat_user.call_fsm(data, ord)
+                    else:
+                        logging.info('Ожидается перезагрузка на стартовую страницу')
+                        message, curl = reload_bot(data)
 
         if message and curl:
             try:
@@ -1204,4 +1501,5 @@ def do_echo():
 
 
 if __name__ == '__main__':
-    set_webhook(input('Please, Input API_TOKEN > '))
+    URL_BOT = {"url": "https://tirentest.herokuapp.com/api/v1/echo"}
+    set_webhook(URL_BOT, input('Please, Input API_TOKEN > '))

@@ -42,7 +42,6 @@ def read_variable():
     tmp_ = None
     if redisClient.exists("settings_data"):
         tmp_ = msgpack.unpackb(redisClient.get('settings_data'))
-
     return tmp_
 
 
@@ -51,3 +50,19 @@ def clear_base_redis():
     redisClient = redis.from_url(os.environ.get("REDIS_URL"))
     for key in redisClient.keys('*'):
         redisClient.delete(key)
+
+
+def save_subscription(newDict):
+    redisClient = redis.from_url(os.environ.get("REDIS_URL"))
+    redisClient.set('subscription', msgpack.packb(newDict))
+
+
+def read_subscription():
+    redisClient = redis.from_url(os.environ.get("REDIS_URL"))
+    tmp_ = {}
+    if redisClient.exists("subscription"):
+        tmp_ = msgpack.unpackb(redisClient.get('subscription'))
+    return tmp_
+
+
+# clear_base_redis()

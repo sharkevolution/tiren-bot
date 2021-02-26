@@ -8,7 +8,7 @@ from mybot.config import RESOURCES_PATH
 file_path = [RESOURCES_PATH, 'settings', 'logo.xlsx']
 logo = os.path.join(*file_path)
 
-logo = 'logo.xlsx'
+# logo = 'logo.xlsx'
 newDict = {}
 
 

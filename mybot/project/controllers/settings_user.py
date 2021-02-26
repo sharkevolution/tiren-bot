@@ -1,35 +1,16 @@
+
+from datetime import datetime
+from pytz import timezone
+
 import emoji
 import logging
 
 
-# [{"text": f"Мои перевозчики {emoji.emojize(':delivery_truck:')}", "callback_data": "delivery"}, ],
-# [{"text": f"Удалить время прибытия {emoji.emojize(':delivery_truck:')}", "callback_data": "delivery"}, ],
-# [{"text": f"Удалить регионы {emoji.emojize(':delivery_truck:')}", "callback_data": "delivery"}, ],
-# [{"text": f"Удалить города {emoji.emojize(':delivery_truck:')}", "callback_data": "delivery"}, ],
-# [{"text": f"Мои города {emoji.emojize(':shopping_cart:')}", "callback_data": "delivery"}, ],
-# [{"text": f"Мои адреса {emoji.emojize(':shopping_cart:')}", "callback_data": "shop"}, ],
-# [{"text": f"Настройки бота {emoji.emojize(':shopping_cart:')}", "callback_data": "shop"}, ],
-
-# def template_region_all():
-#     ej_ukraine = emoji.emojize(':Ukraine:')
-#     ej_city = emoji.emojize(':cityscape:')
-#     ej_delivery = emoji.emojize(':delivery_truck:')
-#     ej_shop = emoji.emojize(':shopping_cart:')
-#
-#     reply_markup = {"inline_keyboard": [[
-#         {"text": f"Регион {ej_ukraine}", "callback_data": "region"},
-#         {"text": f"Город {ej_city}", "callback_data": "city"}],
-#         [{"text": f"Магазин {ej_shop}", "callback_data": "shop"}, ],
-#         [{"text": f"Перевозчик {ej_delivery}", "callback_data": "delivery"}, ]
-#     ],
-#         "resize_keyboard": True,
-#         "one_time_keyboard": False}
-#
-#     return reply_markup
+limit = 24.0
 
 
 def template_engineer_mode():
-    ej_ok = emoji.emojize(':OK_button:')
+    # ej_ok = emoji.emojize(':OK_button:')
 
     reply_markup = {"inline_keyboard": [
         [
@@ -139,8 +120,7 @@ def template_gear():
 
 
 def template_fsm_region():
-    new_region = []
-    new_region.append([{"text": 'Добавить регион'}])
+    new_region = [[{"text": 'Добавить регион'}]]
 
     reply_markup = {"keyboard": new_region,
                     "resize_keyboard": True,
@@ -167,8 +147,7 @@ def template_fsm_city(dict_init, chat_user):
 
 
 def template_fsm_address():
-    new_adr = []
-    new_adr.append([{"text": 'Добавить адрес'}])
+    new_adr = [[{"text": 'Добавить адрес'}]]
 
     reply_markup = {"keyboard": new_adr,
                     "resize_keyboard": True,
@@ -184,7 +163,7 @@ def template_start():
         {"text": f"Мой список {emoji.emojize(':satellite:')}", "callback_data": "ent_list"}],
         [{"text": f"Мои города {emoji.emojize(':gear:')}", "callback_data": "gear"},
          {"text": f"Новый адрес {emoji.emojize(':Ukraine:')}", "callback_data": "add_address"}, ],
-        [{"text": f"Консолидировать данные", "callback_data": "aggregate"}, ]
+        [{"text": f"Консолидировать данные {emoji.emojize(':grinning_face:')}", "callback_data": "aggregate"}, ]
     ],
         "hide_keyboard": True,
     }
@@ -201,7 +180,6 @@ def template_hide_keboard():
 
 
 def template_weight(dict_init, chat_user):
-
     wt = []
     for b in dict_init['wt']:
         if chat_user.__name__ in b[2]:
@@ -213,7 +191,7 @@ def template_weight(dict_init, chat_user):
             chat_user.weight.append(str(b[1]))
 
     n = 3
-    resize_wt = [wt[i:i+n] for i in range(0, len(wt), n)]
+    resize_wt = [wt[i:i + n] for i in range(0, len(wt), n)]
     logging.info(resize_wt)
 
     resize_wt.append([{"text": emoji.emojize(':BACK_arrow: Назад к перевозчикам')}])
@@ -225,7 +203,6 @@ def template_weight(dict_init, chat_user):
 
 
 def template_tasks_to_send(tmp_dict, chat_user, rdot):
-
     task_list = []
 
     for ts in tmp_dict:
@@ -248,11 +225,265 @@ def template_edit_list():
     reply_markup = {"inline_keyboard": [[
         {"text": f"Удалить из списка", "callback_data": "edit_list_send"},
         {"text": f"Удалить Все", "callback_data": "del_list_send"}],
+        [{"text": f"{emoji.emojize(':TOP_arrow: На главную')}", "callback_data": "ent_main"}],
     ],
         "resize_keyboard": True,
         "one_time_keyboard": False
     }
     return reply_markup
+
+
+def change_status_subscription(bot, chat_user, status='pending'):
+    logging.info('change_status_subscription')
+
+    global limit
+
+    if uid := bot.subscription.get(chat_user.selected_subscriber):
+
+        for chunk in chat_user.selected_sub_data:
+            st = chat_user.selected_sub_data[chunk]
+            if bot.rdot in chunk[0:1]:
+                pass
+            else:
+                cur = st['status_send']
+                # st['status_send'] = status
+                cur[str(chat_user.__name__)] = 'pending'
+                chat_user.selected_sub_data[chunk] = st
+
+        kiev = timezone('Europe/Kiev')
+        now = datetime.now(kiev)
+        date_time_str = datetime.strftime(now,  "%m/%d/%Y, %H:%M:%S")
+        date_time = datetime.strptime(date_time_str,  "%m/%d/%Y, %H:%M:%S")
+
+        # logging.info(uid)
+
+        item_list = [b[0] for b in uid]
+        logging.info(item_list)
+
+        count = len(item_list)
+
+        while count > 0:
+            date_string = item_list[count - 1]
+            uid_date = datetime.strptime(date_string, "%m/%d/%Y, %H:%M:%S")
+            duration = date_time - uid_date
+            duration_in_s = duration.total_seconds()
+            hours = divmod(duration_in_s, 3600)[0]
+
+            if hours >= limit:
+                del uid[count - 1]
+                logging.info(f'hours: {hours}')
+                logging.info(f'del {count - 1}')
+
+            count -= 1
+
+        for f in uid:
+            logging.info(f[0])
+
+            if f[0] == chat_user.selected_change_datetime[:20]:
+                shops = f[1]
+                # logging.info('shops')
+                # logging.info(shops)
+
+                for h in shops:
+                    st = shops[h]
+                    # logging.info('change status')
+                    # logging.info(f[0])
+                    if bot.rdot in h[0:1]:
+                        pass
+                    else:
+                        cur = st['status_send']
+                        cur[str(chat_user.__name__)] = status
+                        shops[h] = st
+
+                f[1] = shops
+
+        bot.subscription[chat_user.selected_subscriber] = uid
+
+        if len(uid) > 0:
+            pass
+        else:
+            del bot.subscription[chat_user.selected_subscriber]
+
+
+def template_sub_print(bot, chat_user, ord):
+
+    users_text = []
+    commands_ = []
+    dlv = []
+    result_text = 'Список пуст'
+
+    # logging.info(bot.subscription)
+
+    if uid := bot.subscription.get(chat_user.selected_subscriber):
+
+        # now = datetime.now()
+        # date_time_str = datetime.strftime(now,  "%m/%d/%Y, %H:%M:%S")
+        # date_time = datetime.strptime(date_time_str,  "%m/%d/%Y, %H:%M:%S")
+        # # logging.info(uid)
+        #
+        # item_list = [b[0] for b in uid]
+        # # logging.info(item_list)
+        #
+        # count = len(item_list)
+        #
+        # while count > 0:
+        #     date_string = item_list[count - 1]
+        #     uid_date = datetime.strptime(date_string, "%m/%d/%Y, %H:%M:%S")
+        #     duration = date_time - uid_date
+        #     duration_in_s = duration.total_seconds()
+        #     hours = divmod(duration_in_s, 3600)[0]
+        #
+        #     if hours >= limit:
+        #         logging.info(f'hours: {hours}')
+        #         logging.info(f'del {count - 1}')
+        #         del uid[count - 1]
+        #
+        #     count -= 1
+
+        for chunk in uid:
+
+            txt = ''
+            shops = chunk[1]
+
+            for h in shops:
+                st = shops[h]
+                if bot.rdot in h[0:1]:
+                    pass
+                else:
+                    cur = st['status_send']
+                    # logging.info(st['status_send'])
+
+                    # Initialize
+                    if not cur.get(str(chat_user.__name__)):
+                        cur[str(chat_user.__name__)] = 'pending'
+
+                    if cur[str(chat_user.__name__)] == 'pending':
+                        txt = chunk[0] + emoji.emojize('  :zzz:')
+                        break
+                    if cur[str(chat_user.__name__)] == 'combined':
+                        txt = chunk[0] + emoji.emojize('  :check_mark:')
+                        break
+                    if cur[str(chat_user.__name__)] == 'rejected':
+                        txt = chunk[0] + emoji.emojize('  :cross_mark:')
+                        break
+
+            if txt == ord:
+                temp_ = chunk[1]
+                for k in temp_:
+                    users_text.insert(0, ' '.join([k]))
+                    result_text = '\n'.join(users_text)
+
+                    chat_user.selected_sub_data[k] = temp_[k]
+                    logging.info(temp_[k])
+            else:
+                logging.info('not data')
+
+        bot.subscription[chat_user.selected_subscriber] = uid
+
+        # if len(uid) > 0:
+        #     pass
+        # else:
+        #     del bot.subscription[chat_user.selected_subscriber]
+
+    dlv.extend([{"text": 'Принять'}, {"text": 'Отклонить'},
+                {"text": emoji.emojize(':BACK_arrow: К датам')},
+                {"text": emoji.emojize(':grinning_face: К именам')}])
+
+    n = 2
+    resize_dlv = [dlv[i:i + n] for i in range(0, len(dlv), n)]
+    logging.info(resize_dlv)
+
+    resize_dlv.append([{"text": emoji.emojize(':TOP_arrow: На главную')}])
+
+    commands_.extend(['Принять', 'Отклонить',
+                      emoji.emojize(':BACK_arrow: К датам'),
+                      emoji.emojize(':grinning_face: К именам')])
+    commands_.append(emoji.emojize(':TOP_arrow: На главную'))
+
+    reply_markup = {"keyboard": resize_dlv, "resize_keyboard": True, "one_time_keyboard": False}
+
+    return reply_markup, commands_, result_text
+
+
+def template_sub_datetime(bot, chat_user, ord):
+    users_messages = []
+    commands_ = []
+
+    logging.info(bot.subscription)
+    logging.info(ord)
+
+    for b in bot.subscription:
+        if me := bot.users.get(int(b)):
+
+            username = ' '.join([me.first_name, me.last_name, b])
+
+            if username == ord:
+                chat_user.selected_subscriber = b  # Выбранный подписчик
+
+                for userdata in bot.subscription[b]:
+                    # logging.info(userdata)
+
+                    shops = userdata[1]
+                    txt = ''
+
+                    for h in shops:
+                        st = shops[h]
+                        if bot.rdot in h[0:1]:
+                            pass
+                        else:
+                            cur = st['status_send']
+                            # logging.info(st['status_send'])
+                            logging.info(st)
+                            logging.info(cur)
+
+                            # Initialize
+                            if not cur.get(str(chat_user.__name__)):
+                                cur[str(chat_user.__name__)] = 'pending'
+
+                            logging.info(str(chat_user.__name__))
+                            if cur[str(chat_user.__name__)] == 'pending':
+                                txt = userdata[0] + emoji.emojize('  :zzz:')
+                                break
+                            if cur[str(chat_user.__name__)] == 'combined':
+                                txt = userdata[0] + emoji.emojize('  :check_mark:')
+                                break
+                            if cur[str(chat_user.__name__)] == 'rejected':
+                                txt = userdata[0] + emoji.emojize('  :cross_mark:')
+                                break
+
+                    users_messages.insert(0, [{"text": txt}])
+                    commands_.insert(0, txt)
+        else:
+            logging.info('not data')
+
+    users_messages.append([{"text": emoji.emojize(':BACK_arrow: К именам')}])
+    commands_.append(emoji.emojize(':BACK_arrow: К именам'))
+    users_messages.append([{"text": emoji.emojize(':TOP_arrow: На главную')}])
+    commands_.append(emoji.emojize(':TOP_arrow: На главную'))
+
+    reply_markup = {"keyboard": users_messages, "resize_keyboard": True, "one_time_keyboard": False}
+
+    return reply_markup, commands_
+
+
+def template_subscription(bot):
+    users_list = []
+    commands_ = []
+
+    for b in bot.subscription:
+        if me := bot.users.get(int(b)):
+            username = ' '.join([me.first_name, me.last_name, b])
+            users_list.append([{"text": username}])
+            commands_.append(username)
+        else:
+            pass
+
+    users_list.append([{"text": emoji.emojize(':TOP_arrow: На главную')}])
+    commands_.append(emoji.emojize(':TOP_arrow: На главную'))
+
+    reply_markup = {"keyboard": users_list, "resize_keyboard": True, "one_time_keyboard": False}
+
+    return reply_markup, commands_
 
 
 def template_shops(dict_init, chat_user):
@@ -292,7 +523,7 @@ def template_delivery(dict_init, chat_user):
             chat_user.delivery.append(b[1])
 
     n = 2
-    resize_dlv = [dlv[i:i+n] for i in range(0, len(dlv), n)]
+    resize_dlv = [dlv[i:i + n] for i in range(0, len(dlv), n)]
     logging.info(resize_dlv)
 
     resize_dlv.append([{"text": emoji.emojize(':BACK_arrow: Назад к адресам')}])

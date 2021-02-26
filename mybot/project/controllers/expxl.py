@@ -141,7 +141,9 @@ def iter_dict(data):
     ws4 = wb.create_sheet(title='weight')
     exp_city(ws4, data['wt'])
 
-    wb.save('logo.xlsx')
+    _path = [RESOURCES_PATH, 'settings', 'logo.xlsx']
+    excel_path = os.path.join(*_path)
+    wb.save(excel_path)
 
 
 if __name__ == "__main__":
