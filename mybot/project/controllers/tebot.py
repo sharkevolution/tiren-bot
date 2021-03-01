@@ -717,7 +717,8 @@ def enter_top(data, ord=None):
     r = requests.post(bot.api_url, data=json.dumps(message), headers=bot.headers)
     assert r.status_code == 200
 
-    result_text = f"Hi {emoji.emojize(':waving_hand:')} .Коммент можно написать через точку"
+    result_text = f"Hi {emoji.emojize(':waving_hand:')} .Коммент можно написать через точку, " \
+                  f"номер пломбы можно записать через троеточие ...123456"
     reply_markup = settings_user.template_start()
     message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
     return message, bot.api_url
