@@ -28,9 +28,14 @@ from mybot.project.controllers import settings_user
 from mybot.project.controllers import chtime
 from mybot.project.controllers import treeadr
 
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
+
+PROD = {"url": "https://tiren-bot.herokuapp.com/api/v1/echo"}
+TEST = {"url": "https://tirentest.herokuapp.com/api/v1/echo"}
+
 
 def set_webhook(data, bottoken):
-    # prod = {"url": "https://tiren-bot.herokuapp.com/api/v1/echo"}
     headers = {'Content-type': 'application/json'}
     baseURL = f'https://api.telegram.org/bot{bottoken}/setWebhook'
 
@@ -53,6 +58,7 @@ def user_start_update(chat_id, _from):
     """ Start and Updater user profile """
     if not bot.users.get(chat_id):
         # Add info about User
+        logging.info('Add info about User')
         clu = User(chat_id)
         clu.from_id = _from['id']
 
@@ -121,6 +127,7 @@ class User:
 
         self.FSM = False
         self.call_fsm = None
+
         self.previous_ord = None
         self.fsm_location = [None, None]  # Address - City
 
@@ -206,6 +213,7 @@ class Bot:
 
         self.admin_chat_id = 471125560  # Admin chat
         self.rdot = '.'
+        self.rdot_three = '...'
 
 
 class Dispatcher:
@@ -285,6 +293,30 @@ def send_file(data, ord=None):
     return {}, {}
 
 
+def insert_seal(data, ord=None):
+    """ FSM add Insert Seal """
+    tunnel = data['message']['chat']['id']
+    chat_user = bot.users[tunnel]
+
+    result_text = f"Добавлен номер пломбы"
+
+    single_quote = '\''
+    seal = f'Пломба: {ord[3:].strip()}'
+    seal_number = "".join([bot.rdot_three, ' ', single_quote, seal, single_quote])
+
+    if tmp_ := bot.tasks.get(tunnel):
+        tmp_[seal_number] = seal_number
+        bot.tasks[tunnel] = tmp_
+        logging.info('ADD Seal number')
+        logging.info(bot.tasks)
+    else:
+        bot.tasks[tunnel] = {seal_number: seal_number}
+        logging.info(bot.tasks)
+
+    res = {'chat_id': tunnel, 'text': result_text}
+    return res, bot.api_url
+
+
 def fsm_city(data, ord=None):
     """ FSM add new city """
     tunnel = data['message']['chat']['id']
@@ -310,18 +342,19 @@ def fsm_city(data, ord=None):
         dup_city = True
         dup_adr = True
 
-        city_ = sorted(bot.dict_init['city'], key=lambda num: num[0], reverse=True)
+        city_ = sorted(bot.dict_init['city'], key=lambda num: int(num[0]), reverse=True)
         max_key_city = city_[0][0]  # New key
 
         for b in bot.dict_init['city']:
             if new_city_split[idx].lower() == b[1].lower():
+                logging.info(new_city_split[idx].lower())
                 dup_city = False
                 logging.info("dup_city = false")
                 max_key_city = b[0]
                 break
 
         # Check Address in list and save to Redis
-        adr_ = sorted(bot.dict_init['adr'], key=lambda num: num[1], reverse=True)
+        adr_ = sorted(bot.dict_init['adr'], key=lambda num: int(num[1]), reverse=True)
         max_key_address = adr_[0][1]  # New key
         # new_adr = chat_user.fsm_location[0]
 
@@ -339,9 +372,9 @@ def fsm_city(data, ord=None):
             if dup_city:
                 result_text = f"Добавлен новый адрес и создан новый город: {link}"
                 # New City
-                max_key_city += 1
-                city_.append([max_key_city, new_city_split[idx], []])
-                rev_city = sorted(city_, key=lambda num: num[0], reverse=True)
+                max_key_city = int(max_key_city) + 1
+                city_.append([str(max_key_city), new_city_split[idx], []])
+                rev_city = sorted(city_, key=lambda num: int(num[0]), reverse=True)
                 bot.dict_init['city'] = rev_city
             else:
                 # City exists
@@ -553,6 +586,17 @@ def gear_add_handler_city(data, ord=None):
     bot.users[tunnel] = chat_user
 
     result_text = f"{ord}"
+    message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
+
+    return message, bot.api_url
+
+
+def gear_insert_new_city(data, ord=None):
+    callback_hello_ok(data, 'ok')
+    tunnel = data['callback_query']['message']['chat']['id']
+    result_text = 'Введите название нового города в строку для ввода текста'
+
+    logging.info('New City enter')
     message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
 
     return message, bot.api_url
@@ -1314,6 +1358,8 @@ def comment_additional(data, ord=None):
 def clear_redis_base(data, ord=None):
     dredis.clear_base_redis()
 
+    bot.users = {}  # Reset users
+
     tunnel = data['message']['chat']['id']
     message = {'chat_id': tunnel, 'text': 'Clear base Redis is ok!'}
     return message, bot.api_url
@@ -1465,9 +1511,16 @@ def do_echo():
                     # logging.info(ord)
                     message, curl = exec_func(data, ord)
                 else:
-                    if bot.rdot in ord[0:1]:
+                    logging.info(ord)
+                    logging.info(bot.rdot_three)
+
+                    if bot.rdot_three == ord[0:3]:
+                        logging.info('# number seal')
+                        message, curl = insert_seal(data, ord)  # add number seal
+
+                    elif bot.rdot == ord[0:1]:
                         logging.info('# comment')
-                        comment_additional(data, ord)  # add comment
+                        message, curl = comment_additional(data, ord)  # add comment
 
                     elif chat_user.FSM:
                         if exec_func := dp.pull_message_commands.get(ord):
@@ -1481,6 +1534,7 @@ def do_echo():
                         else:
                             # Start FSM
                             message, curl = chat_user.call_fsm(data, ord)
+
                     else:
                         logging.info('Ожидается перезагрузка на стартовую страницу')
                         message, curl = reload_bot(data)
@@ -1501,6 +1555,5 @@ def do_echo():
 
 
 if __name__ == '__main__':
-
-    URL_BOT = {"url": "https://tiren-bot.herokuapp.com/api/v1/echo"}
+    URL_BOT = PROD
     set_webhook(URL_BOT, input('Please, Input API_TOKEN > '))

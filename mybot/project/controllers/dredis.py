@@ -7,18 +7,23 @@ import msgpack
 from mybot.config import RESOURCES_PATH
 
 
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
+
+
 def variable_init(bot):
     """
         Load Data from data.txt (json) and save or get data from redis variable
     """
+    logging.info('Variable Init')
     redisClient = redis.from_url(os.environ.get("REDIS_URL"))
 
     if redisClient.exists("settings_data"):
-        logging.info('Get data from Redis? settings data')
+        logging.info('Get settings data from Redis')
         bot.dict_init = msgpack.unpackb(redisClient.get('settings_data'))
         # logging.info(bot.dict_init)
     else:
-        logging.info('No base Redis, load data and save to Redis and Reload')
+        logging.info('No settings data, Redis')
         file_path = [RESOURCES_PATH, 'settings', 'data.txt']
         djs = os.path.join(*file_path)
 
@@ -27,9 +32,9 @@ def variable_init(bot):
 
         # save to redis
         redisClient.set('settings_data', msgpack.packb(newDict))
-
-        if redisClient.exists("settings_data"):
-            bot.dict_init = msgpack.unpackb(redisClient.get('settings_data'))
+        logging.info('Save settings data from Redis')
+        bot.dict_init = newDict
+        # logging.info(newDict)
 
 
 def save_variable(newDict):
