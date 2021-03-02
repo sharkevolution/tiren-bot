@@ -68,6 +68,26 @@ def template_gear_del_address(dict_init, chat_user):
     return reply_markup, chat_user
 
 
+def template_completely_remove_city(dict_init, chat_user):
+    city = []
+    single_quote = '\''
+    logging.info(dict_init)
+    for b in dict_init['city']:
+        if chat_user.__name__ in b[2]:
+            txt_ = f"Удалить {single_quote}{b[1]}{single_quote}"
+            city.append([{"text": txt_}])
+            chat_user.gear_cities.append(txt_)
+        else:
+            pass
+
+    city.append([{"text": emoji.emojize(':TOP_arrow: На главную')}])
+    chat_user.gear_cities.append(emoji.emojize(':TOP_arrow: На главную'))
+
+    reply_markup = {"keyboard": city, "resize_keyboard": True, "one_time_keyboard": False}
+
+    return reply_markup, chat_user
+
+
 def template_gear_del_city(dict_init, chat_user):
     city = []
     single_quote = '\''
@@ -91,7 +111,7 @@ def template_gear_del_city(dict_init, chat_user):
 def template_gear_add_city(dict_init, chat_user):
     city = []
     single_quote = '\''
-    logging.info(dict_init)
+    # logging.info(dict_init)
     for b in dict_init['city']:
         if chat_user.__name__ in b[2]:
             pass
@@ -110,10 +130,11 @@ def template_gear_add_city(dict_init, chat_user):
 
 def template_gear():
     reply_markup = {"inline_keyboard": [
-        [{"text": f"Добавить город", "callback_data": "gear_add_city"},
+        [{"text": f"Выбрать город", "callback_data": "gear_add_city"},
          {"text": f"Исключить город", "callback_data": "gear_del_city"}, ],
         [{"text": f"Удалить адрес у всех", "callback_data": "gear_del_address"}, ],
-        [{"text": f"Список пользователей", "callback_data": "gear_list_users"}, ]
+        [{"text": f"Список пользователей", "callback_data": "gear_list_users"}, ],
+        [{"text": f"Полностью удалить город", "callback_data": "completely_remove_city"}, ]
     ],
         "resize_keyboard": True,
         "one_time_keyboard": False

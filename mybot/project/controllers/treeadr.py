@@ -37,15 +37,37 @@ def hide_city(tree_city, chat_id, name_ord):
     return tree_city
 
 
-def delete_address(tree_adr, chat_id, name_ord):
+def delete_address(tree_adr, chat_id, name_ord, flag):
     single_quote = '\''
     adr_name = name_ord.split(f"{single_quote}")
 
-    logging.info(adr_name)
+    logging.info(f'Try delete address {adr_name}')
 
     for b in tree_adr:
         if adr_name[1] in b[2]:
-            tree_adr.remove(b)
-            break
+            if flag:
+                tree_adr.remove(b)
+                logging.info(f'Removed address {b}')
+                break
+            else:
+                logging.info('Access denied delete address')
 
     return tree_adr
+
+
+def delete_city(tree_city, chat_id, name_ord, flag):
+    single_quote = '\''
+    city_name = name_ord.split(f"{single_quote}")
+
+    logging.info(f'Try delete city {city_name}')
+
+    for b in tree_city:
+        if city_name[1] in b[1]:
+            if flag:
+                tree_city.remove(b)
+                logging.info(f'Removed city {b}')
+                break
+            else:
+                logging.info('Access denied delete city')
+
+    return tree_city

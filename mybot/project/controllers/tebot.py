@@ -28,14 +28,18 @@ from mybot.project.controllers import settings_user
 from mybot.project.controllers import chtime
 from mybot.project.controllers import treeadr
 
+
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 
-PROD = {"url": "https://tiren-bot.herokuapp.com/api/v1/echo"}
-TEST = {"url": "https://tirentest.herokuapp.com/api/v1/echo"}
+FLAG_2206 = False
+
+WAVING_HAND = f"Hi {emoji.emojize(':waving_hand:')} .Коммент можно написать через точку, " \
+              f"номер пломбы можно записать через троеточие ...123456, вер.1.0.1"
 
 
 def set_webhook(data, bottoken):
+    # prod = {"url": "https://tiren-bot.herokuapp.com/api/v1/echo"}
     headers = {'Content-type': 'application/json'}
     baseURL = f'https://api.telegram.org/bot{bottoken}/setWebhook'
 
@@ -447,16 +451,19 @@ def fsm_address(data, ord=None):
 
 @dp.message_handler(commands=[])
 def gear_del_handler_adr(data, ord=None):
+    global FLAG_2206
     tunnel = data['message']['chat']['id']
     nDict = dredis.read_variable()
     bot.dict_init = nDict
-    tree_ = treeadr.delete_address(bot.dict_init['adr'], tunnel, ord)
+    tree_ = treeadr.delete_address(bot.dict_init['adr'], tunnel, ord, FLAG_2206)
+    FLAG_2206 = False
     bot.dict_init['adr'] = tree_
     dredis.save_variable(bot.dict_init)
 
     logging.info(tree_)
 
-    reply_markup, chat_user = settings_user.template_gear_del_address(bot.dict_init, bot.users[tunnel])
+    reply_markup, chat_user = settings_user.template_gear_del_address(bot.dict_init,
+                                                                      bot.users[tunnel])
 
     # Update commands wrapper
     for b in chat_user.gear_adr[:-1]:
@@ -482,7 +489,8 @@ def gear_del_addess_user(data, ord=None):
 
     tunnel = data['callback_query']['message']['chat']['id']
     result_text = 'Удалить адрес из базы у Всех пользователей, без возможности Восстановления'
-    reply_markup, chat_user = settings_user.template_gear_del_address(bot.dict_init, bot.users[tunnel])
+    reply_markup, chat_user = settings_user.template_gear_del_address(bot.dict_init,
+                                                                      bot.users[tunnel])
 
     # Update commands wrapper
     for b in chat_user.gear_adr[:-1]:
@@ -602,6 +610,67 @@ def gear_insert_new_city(data, ord=None):
     return message, bot.api_url
 
 
+@dp.message_handler(commands=[])
+def completely_remove_handler_city(data, ord=None):
+    global FLAG_2206
+    tunnel = data['message']['chat']['id']
+    nDict = dredis.read_variable()
+    bot.dict_init = nDict
+    tree_ = treeadr.delete_city(bot.dict_init['city'], tunnel, ord, FLAG_2206)
+    FLAG_2206 = False
+    bot.dict_init['city'] = tree_
+    dredis.save_variable(bot.dict_init)
+
+    logging.info(tree_)
+
+    reply_markup, chat_user = settings_user.template_completely_remove_city(bot.dict_init,
+                                                                            bot.users[tunnel])
+
+    # Update commands wrapper
+    for b in chat_user.gear_cities[:-1]:
+        chat_user.pull_user_commands[b] = completely_remove_handler_city
+
+    # event TOP
+    back = chat_user.gear_cities[-1]
+    logging.info('completely_remove_city')
+    logging.info(back)
+    chat_user.pull_user_commands[back] = start_bot
+
+    bot.users[tunnel] = chat_user
+
+    result_text = f"{ord}"
+    message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
+
+    return message, bot.api_url
+
+
+@dp.callback_handler(commands=["completely_remove_city", ])
+def completely_remove_city_user(data, ord=None):
+    callback_hello_ok(data, 'ok')
+
+    tunnel = data['callback_query']['message']['chat']['id']
+    result_text = 'Для того чтобы удалить доступный Вам город, сначала добавьте его в свой список, ' \
+                  'а затем удалите его в этом меню по названию'
+    reply_markup, chat_user = settings_user.template_completely_remove_city(bot.dict_init, bot.users[tunnel])
+
+    # Update commands wrapper
+    for b in chat_user.gear_cities[:-1]:
+        chat_user.pull_user_commands[b] = completely_remove_handler_city
+
+    # event TOP
+    back = chat_user.gear_cities[-1]
+    logging.info('completely_remove_city')
+    logging.info(back)
+    chat_user.pull_user_commands[back] = start_bot
+
+    bot.users[tunnel] = chat_user
+
+    # logging.info('Region arrived')
+    message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
+
+    return message, bot.api_url
+
+
 @dp.callback_handler(commands=["gear_add_city", ])
 def gear_add_city_user(data, ord=None):
     callback_hello_ok(data, 'ok')
@@ -617,7 +686,7 @@ def gear_add_city_user(data, ord=None):
     # event TOP
     back = chat_user.gear_cities[-1]
     logging.info('gear_add_city_user')
-    logging.info(back)
+    # logging.info(back)
     chat_user.pull_user_commands[back] = start_bot
 
     bot.users[tunnel] = chat_user
@@ -717,8 +786,7 @@ def enter_top(data, ord=None):
     r = requests.post(bot.api_url, data=json.dumps(message), headers=bot.headers)
     assert r.status_code == 200
 
-    result_text = f"Hi {emoji.emojize(':waving_hand:')} .Коммент можно написать через точку, " \
-                  f"номер пломбы можно записать через троеточие ...123456"
+    result_text = WAVING_HAND
     reply_markup = settings_user.template_start()
     message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
     return message, bot.api_url
@@ -1075,7 +1143,7 @@ def delete_item_send(data, ord=None):
         r = requests.post(bot.api_url, data=json.dumps(message), headers=bot.headers)
         assert r.status_code == 200
 
-        result_text = f"Hi {emoji.emojize(':waving_hand:')}"
+        result_text = WAVING_HAND
         reply_markup = settings_user.template_start()
         message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
 
@@ -1113,7 +1181,7 @@ def delete_send(data, ord=None):
     r = requests.post(bot.api_url, data=json.dumps(message), headers=bot.headers)
     assert r.status_code == 200
 
-    result_text = f"Hi {emoji.emojize(':waving_hand:')}"
+    result_text = WAVING_HAND
     reply_markup = settings_user.template_start()
     message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
 
@@ -1405,11 +1473,34 @@ def keboard_bot(data, ord=None):
     return {}, {}
 
 
+@dp.message_handler(commands=['/enable2206', ])
+def enable_flag_delete(data, ord=None):
+    """ Установка флага разрешения на удаление """
+    global FLAG_2206
+    FLAG_2206 = True
+
+    text = data['message'].get('text')
+    result_text = f"Установлен флаг разрешения на удаление [{text}]"
+    res = {'chat_id': data['message']['chat']['id'], 'text': result_text}
+    return res, bot.api_url
+
+
+@dp.message_handler(commands=['/disable2206', ])
+def disable_flag_delete(data, ord=None):
+    """ Отмена флага разрешения на удаление """
+    global FLAG_2206
+    FLAG_2206 = False
+
+    text = data['message'].get('text')
+    result_text = f"Сброшено разрешение на удаление [{text}]"
+    res = {'chat_id': data['message']['chat']['id'], 'text': result_text}
+    return res, bot.api_url
+
+
 @dp.message_handler(commands=['/start', ])
 def start_bot(data, ord=None):
     tunnel = data['message']['chat']['id']
-    result_text = f"Hi {emoji.emojize(':waving_hand:')} .Коммент можно написать через точку, " \
-                  f"номер пломбы можно записать через троеточие ...123456, вер.1.0.1"
+    result_text = WAVING_HAND
     reply_markup = settings_user.template_start()
     message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
     return message, bot.api_url
@@ -1454,8 +1545,7 @@ def reload_bot(data):
     r = requests.post(bot.api_url, data=json.dumps(message), headers=bot.headers)
     assert r.status_code == 200
 
-    result_text = f"Hi {emoji.emojize(':waving_hand:')} .Коммент можно написать через точку, " \
-                  f"номер пломбы можно записать через троеточие ...123456, вер.1.0.1"
+    result_text = WAVING_HAND
     reply_markup = settings_user.template_start()
     message = {'chat_id': chat_user, 'text': result_text, 'reply_markup': reply_markup}
     return message, bot.api_url
@@ -1558,5 +1648,5 @@ def do_echo():
 
 
 if __name__ == '__main__':
-    URL_BOT = PROD
+    URL_BOT = {"url": "https://tirentest.herokuapp.com/api/v1/echo"}
     set_webhook(URL_BOT, input('Please, Input API_TOKEN > '))

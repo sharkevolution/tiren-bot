@@ -6,7 +6,6 @@ import msgpack
 
 from mybot.config import RESOURCES_PATH
 
-
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 
@@ -59,6 +58,7 @@ def clear_base_redis():
     # Clear base Redis
     redisClient = redis.from_url(os.environ.get("REDIS_URL"))
     for key in redisClient.keys('*'):
+        logging.info(key)
         redisClient.delete(key)
 
 
