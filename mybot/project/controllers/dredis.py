@@ -6,21 +6,21 @@ import msgpack
 
 from mybot.config import RESOURCES_PATH
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
+
+FORMAT = '%(module)s - %(funcName)s -%(lineno)d - %(message)s'
+logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 
 def variable_init(bot):
     """
         Load Data from data.txt (json) and save or get data from redis variable
     """
-    logging.info('Variable Init')
     redisClient = redis.from_url(os.environ.get("REDIS_URL"))
 
     if redisClient.exists("settings_data"):
         logging.info('Get settings data from Redis')
         bot.dict_init = msgpack.unpackb(redisClient.get('settings_data'))
-        # logging.info(bot.dict_init)
+        #logging.info(bot.dict_init)
     else:
         logging.info('No settings data, Redis')
         file_path = [RESOURCES_PATH, 'settings', 'data.txt']
@@ -31,9 +31,10 @@ def variable_init(bot):
 
         # save to redis
         redisClient.set('settings_data', msgpack.packb(newDict))
-        logging.info('Save settings data from Redis')
+        logging.info('Save settings data to Redis')
         bot.dict_init = newDict
-        # logging.info(newDict)
+        # logging.info(newDict['city'])
+        # logging.info(newDict['adr'])
 
 
 def save_variable(newDict):
@@ -41,7 +42,7 @@ def save_variable(newDict):
     redisClient = redis.from_url(os.environ.get("REDIS_URL"))
 
     if redisClient.exists("settings_data"):
-        # save to redis
+        logging.info("save to redis")
         redisClient.set('settings_data', msgpack.packb(newDict))
 
 
@@ -60,6 +61,25 @@ def clear_base_redis():
     for key in redisClient.keys('*'):
         logging.info(key)
         redisClient.delete(key)
+
+
+def reload_base_redis(bot):
+    # Reload base Redis
+    redisClient = redis.from_url(os.environ.get("REDIS_URL"))
+
+    file_path = [RESOURCES_PATH, 'settings', 'data.txt']
+    djs = os.path.join(*file_path)
+
+    newDict = {}
+
+    with open(djs) as json_file:
+        logging.info('json read finish')
+        newDict = json.load(json_file)
+
+    # save to redis
+    redisClient.set('settings_data', msgpack.packb(newDict))
+    bot.dict_init = newDict
+    logging.info('Reload base Redis Done!')
 
 
 def save_subscription(newDict):

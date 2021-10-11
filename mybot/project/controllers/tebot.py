@@ -29,13 +29,13 @@ from mybot.project.controllers import chtime
 from mybot.project.controllers import treeadr
 
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
+FORMAT = '%(module)s - %(funcName)s -%(lineno)d - %(message)s'
+logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 FLAG_2206 = False
 
 WAVING_HAND = f"Hi {emoji.emojize(':waving_hand:')} .Коммент можно написать через точку, " \
-              f"номер пломбы можно записать через троеточие ...123456, вер.1.0.1"
+              f"При первом запуске добавьте перевозчиков, вер.1.0.2"
 
 
 def set_webhook(data, bottoken):
@@ -61,7 +61,6 @@ def callback_hello_ok(data, text):
 def user_start_update(chat_id, _from):
     """ Start and Updater user profile """
     if not bot.users.get(chat_id):
-        # Add info about User
         logging.info('Add info about User')
         clu = User(chat_id)
         clu.from_id = _from['id']
@@ -76,6 +75,8 @@ def user_start_update(chat_id, _from):
 
         clu.put_redis_info()
         bot.users[User(chat_id).__name__] = clu
+        logging.info(f"Chat add: {type(User(chat_id).__name__)}")
+        logging.info(f"Chat add2: {type(chat_id)}")
 
     cs = bot.users[chat_id]
     csdata = cs.get_redis()
@@ -88,8 +89,8 @@ def user_start_update(chat_id, _from):
     if csdata.get('last_name'):
         cs.last_name = csdata['last_name']
 
-    bot.users[chat_id] = cs
-    bot.last_chat = chat_id  # Active chat
+    bot.users[str(chat_id)] = cs
+    bot.last_chat = str(chat_id)  # Active chat
 
     return cs
 
@@ -122,6 +123,8 @@ class User:
 
         self.gear_cities = []
         self.gear_adr = []
+
+        self.gear_carriers = []
 
         self.bind_to_city = []
 
@@ -599,6 +602,94 @@ def gear_add_handler_city(data, ord=None):
     return message, bot.api_url
 
 
+@dp.message_handler(commands=[])
+def gear_del_handler_carrier(data, ord=None):
+    tunnel = data['message']['chat']['id']
+    nDict = dredis.read_variable()
+    bot.dict_init = nDict
+    tree_ = treeadr.hide_carriers(bot.dict_init['delivery'], tunnel, ord)
+    bot.dict_init['delivery'] = tree_
+    dredis.save_variable(bot.dict_init)
+
+    logging.info(tree_)
+
+    reply_markup, chat_user = settings_user.template_gear_del_carrier(bot.dict_init, bot.users[tunnel])
+
+    # Update commands wrapper
+    for b in chat_user.gear_carriers[:-1]:
+        chat_user.pull_user_commands[b] = gear_del_handler_carrier
+
+    # event TOP
+    back = chat_user.gear_carriers[-1]
+    logging.info('gear_del_handler_carrier')
+    logging.info(back)
+    chat_user.pull_user_commands[back] = start_bot
+
+    bot.users[tunnel] = chat_user
+
+    result_text = f"{ord}"
+    message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
+
+    return message, bot.api_url
+
+
+@dp.callback_handler(commands=["gear_del_carrier", ])
+def gear_del_carrier_user(data, ord=None):
+    callback_hello_ok(data, 'ok')
+
+    tunnel = data['callback_query']['message']['chat']['id']
+    result_text = 'Удалите перевозчика из своего списка'
+    reply_markup, chat_user = settings_user.template_gear_del_carrier(bot.dict_init, bot.users[tunnel])
+
+    # Update commands wrapper
+    for b in chat_user.gear_carriers[:-1]:
+        chat_user.pull_user_commands[b] = gear_del_handler_carrier
+
+    # event TOP
+    back = chat_user.gear_carriers[-1]
+    logging.info('gear_del_carrier_user')
+    logging.info(back)
+    chat_user.pull_user_commands[back] = start_bot
+
+    bot.users[tunnel] = chat_user
+
+    # logging.info('Region arrived')
+    message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
+
+    return message, bot.api_url
+
+
+@dp.message_handler(commands=[])
+def gear_add_handler_carrier(data, ord=None):
+    tunnel = data['message']['chat']['id']
+    nDict = dredis.read_variable()
+    bot.dict_init = nDict
+    tree_ = treeadr.show_carriers(bot.dict_init['delivery'], tunnel, ord)
+    bot.dict_init['delivery'] = tree_
+    dredis.save_variable(bot.dict_init)
+
+    logging.info(tree_)
+
+    reply_markup, chat_user = settings_user.template_gear_add_carrier(bot.dict_init, bot.users[tunnel])
+
+    # Update commands wrapper
+    for b in chat_user.gear_cities[:-1]:
+        chat_user.pull_user_commands[b] = gear_add_handler_carrier
+
+    # event TOP
+    back = chat_user.gear_carriers[-1]
+    logging.info('gear_add_handler_city')
+    logging.info(back)
+    chat_user.pull_user_commands[back] = start_bot
+
+    bot.users[tunnel] = chat_user
+
+    result_text = f"{ord}"
+    message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
+
+    return message, bot.api_url
+
+
 def gear_insert_new_city(data, ord=None):
     callback_hello_ok(data, 'ok')
     tunnel = data['callback_query']['message']['chat']['id']
@@ -683,9 +774,35 @@ def gear_add_city_user(data, ord=None):
     for b in chat_user.gear_cities[:-1]:
         chat_user.pull_user_commands[b] = gear_add_handler_city
 
-    # event TOP
+    # to the TOP
     back = chat_user.gear_cities[-1]
     logging.info('gear_add_city_user')
+    # logging.info(back)
+    chat_user.pull_user_commands[back] = start_bot
+
+    bot.users[tunnel] = chat_user
+
+    # logging.info('Region arrived')
+    message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
+
+    return message, bot.api_url
+
+
+@dp.callback_handler(commands=["gear_add_carrier", ])
+def gear_add_carrier(data, ord=None):
+    callback_hello_ok(data, 'ok')
+
+    tunnel = data['callback_query']['message']['chat']['id']
+    result_text = 'Добавьте перевозчика в свой список'
+    reply_markup, chat_user = settings_user.template_gear_add_carrier(bot.dict_init, bot.users[tunnel])
+
+    # Update commands wrapper
+    for b in chat_user.gear_carriers[:-1]:
+        chat_user.pull_user_commands[b] = gear_add_handler_carrier
+
+    # event TOP
+    back = chat_user.gear_carriers[-1]
+    logging.info('gear_add_carrier')
     # logging.info(back)
     chat_user.pull_user_commands[back] = start_bot
 
@@ -705,11 +822,28 @@ def gear_view_user(data, ord=None):
 
 @dp.callback_handler(commands=["gear", ])
 def gear_user(data, ord=None):
+    """ меню Мои Города"""
+
     callback_hello_ok(data, 'ok')
 
     tunnel = data['callback_query']['message']['chat']['id']
     result_text = f"Настройки пользователя"
     reply_markup = settings_user.template_gear()
+    logging.info(reply_markup)
+    message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
+
+    return message, bot.api_url
+
+
+@dp.callback_handler(commands=["gear_car", ])
+def gear_user_car(data, ord=None):
+    """ меню Мои Перевозчики"""
+
+    callback_hello_ok(data, 'ok')
+
+    tunnel = data['callback_query']['message']['chat']['id']
+    result_text = f"Настройки пользователя"
+    reply_markup = settings_user.template_gear_carriers()
     logging.info(reply_markup)
     message = {'chat_id': tunnel, 'text': result_text, 'reply_markup': reply_markup}
 
@@ -1087,7 +1221,6 @@ def dynamic_shops(data, ord=None):
 
     # event TOP
     back = chat_user.adr[-1]
-    logging.info('TOP')
     logging.info(back)
     chat_user.pull_user_commands[back] = start_bot
 
@@ -1434,6 +1567,15 @@ def clear_redis_base(data, ord=None):
     return message, bot.api_url
 
 
+@dp.message_handler(commands=['/reload', ])
+def reload_redis_base(data, ord=None):
+    dredis.reload_base_redis(bot)
+
+    tunnel = data['message']['chat']['id']
+    message = {'chat_id': tunnel, 'text': 'Reload base Redis is ok!'}
+    return message, bot.api_url
+
+
 @dp.message_handler(commands=['/chat', ])
 def bind_bot(data, ord=None):
     tunnel = data['message']['chat']['id']
@@ -1555,7 +1697,7 @@ def reload_bot(data):
 def do_echo():
     """ Main """
 
-    logging.info('Do echo')
+    logging.info(f'first line')
     message = {}
     curl = None
 
@@ -1564,7 +1706,6 @@ def do_echo():
         bot.subscription = dredis.read_subscription()  # get subscriptions
     except Exception as ex:
         logging.info(f'Error load from Redis: {ex}')
-    # logging.info(bot.subscription)
 
     data = request.json
     # logging.info(data)
@@ -1578,8 +1719,7 @@ def do_echo():
                               data['callback_query']['from'])
 
             if ord := data['callback_query'].get('data'):
-                logging.info('Callback_query')
-                logging.info(ord)
+                logging.info(f'callback_query: {ord}')
                 if exec_func := dp.pull_callback_commands.get(ord):
                     message, curl = exec_func(data, ord)
                 else:
@@ -1593,10 +1733,10 @@ def do_echo():
                 chat_user.put_redis_last_message_id(data)
                 bot.users[chat_user.__name__] = chat_user
 
-                logging.info('Message')
-                logging.info(chat_user.FSM)
-                logging.info(ord)
-                logging.info(chat_user.call_fsm)
+                logging.info(f'message')
+                logging.info(f'chat_user.FSM: {chat_user.FSM}')
+                logging.info(f'call command: {ord}')
+                logging.info(f'chat_user.FSM: {chat_user.call_fsm}')
 
                 if exec_func := chat_user.pull_user_commands.get(ord):
                     message, curl = exec_func(data, ord)
@@ -1629,7 +1769,7 @@ def do_echo():
                             message, curl = chat_user.call_fsm(data, ord)
 
                     else:
-                        logging.info('Ожидается перезагрузка на стартовую страницу')
+                        logging.info('Reload to Start page')
                         message, curl = reload_bot(data)
 
         if message and curl:

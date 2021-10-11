@@ -5,8 +5,8 @@ from pytz import timezone
 import emoji
 import logging
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
+FORMAT = '%(module)s - %(funcName)s -%(lineno)d - %(message)s'
+logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 limit = 24.0
 
@@ -89,11 +89,12 @@ def template_completely_remove_city(dict_init, chat_user):
 
 
 def template_gear_del_city(dict_init, chat_user):
+
     city = []
     single_quote = '\''
-    logging.info(dict_init)
+
     for b in dict_init['city']:
-        if chat_user.__name__ in b[2]:
+        if str(chat_user.__name__) in b[2]:
             txt_ = f"Исключить {single_quote}{b[1]}{single_quote}"
             city.append([{"text": txt_}])
             chat_user.gear_cities.append(txt_)
@@ -113,7 +114,7 @@ def template_gear_add_city(dict_init, chat_user):
     single_quote = '\''
     # logging.info(dict_init)
     for b in dict_init['city']:
-        if chat_user.__name__ in b[2]:
+        if str(chat_user.__name__) in b[2]:
             pass
         else:
             txt_ = f"Добавить {single_quote}{b[1]}{single_quote}"
@@ -128,6 +129,46 @@ def template_gear_add_city(dict_init, chat_user):
     return reply_markup, chat_user
 
 
+def template_gear_del_carrier(dict_init, chat_user):
+    carriers = []
+    single_quote = '\''
+    logging.info(dict_init)
+    for b in dict_init['delivery']:
+        if str(chat_user.__name__) in b[2]:
+            txt_ = f"Исключить {single_quote}{b[1]}{single_quote}"
+            carriers.append([{"text": txt_}])
+            chat_user.gear_carriers.append(txt_)
+        else:
+            pass
+
+    carriers.append([{"text": emoji.emojize(':TOP_arrow: На главную')}])
+    chat_user.gear_carriers.append(emoji.emojize(':TOP_arrow: На главную'))
+
+    reply_markup = {"keyboard": carriers, "resize_keyboard": True, "one_time_keyboard": False}
+
+    return reply_markup, chat_user
+
+
+def template_gear_add_carrier(dict_init, chat_user):
+    carriers = []
+    single_quote = '\''
+    # logging.info(dict_init)
+    for b in dict_init['delivery']:
+        if str(chat_user.__name__) in b[2]:
+            pass
+        else:
+            txt_ = f"Добавить {single_quote}{b[1]}{single_quote}"
+            carriers.append([{"text": txt_}])
+            chat_user.gear_carriers.append(txt_)
+
+    carriers.append([{"text": emoji.emojize(':TOP_arrow: На главную')}])
+    chat_user.gear_carriers.append(emoji.emojize(':TOP_arrow: На главную'))
+
+    reply_markup = {"keyboard": carriers, "resize_keyboard": True, "one_time_keyboard": False}
+
+    return reply_markup, chat_user
+
+
 def template_gear():
     reply_markup = {"inline_keyboard": [
         [{"text": f"Выбрать город", "callback_data": "gear_add_city"},
@@ -135,6 +176,21 @@ def template_gear():
         [{"text": f"Удалить адрес у всех", "callback_data": "gear_del_address"}, ],
         [{"text": f"Список пользователей", "callback_data": "gear_list_users"}, ],
         [{"text": f"Полностью удалить город", "callback_data": "completely_remove_city"}, ]
+    ],
+        "resize_keyboard": True,
+        "one_time_keyboard": False
+    }
+    return reply_markup
+
+
+def template_gear_carriers():
+    """
+        template для подменю Мои Перевозчики
+    """
+
+    reply_markup = {"inline_keyboard": [
+        [{"text": f"Выбрать перевозчика", "callback_data": "gear_add_carrier"},
+         {"text": f"Исключить перевозчика", "callback_data": "gear_del_carrier"}, ]
     ],
         "resize_keyboard": True,
         "one_time_keyboard": False
@@ -186,7 +242,8 @@ def template_start():
         {"text": f"Мой список {emoji.emojize(':satellite:')}", "callback_data": "ent_list"}],
         [{"text": f"Мои города {emoji.emojize(':gear:')}", "callback_data": "gear"},
          {"text": f"Новый адрес {emoji.emojize(':Ukraine:')}", "callback_data": "add_address"}, ],
-        [{"text": f"Консолидировать данные {emoji.emojize(':grinning_face:')}", "callback_data": "aggregate"}, ]
+        [{"text": f"Мои перевозчики {emoji.emojize(':gear:')}", "callback_data": "gear_car"},
+         {"text": f"Консолидация {emoji.emojize(':grinning_face:')}", "callback_data": "aggregate"}]
     ],
         "hide_keyboard": True,
     }
@@ -270,7 +327,7 @@ def change_status_subscription(bot, chat_user, status='pending'):
             else:
                 cur = st['status_send']
                 # st['status_send'] = status
-                cur[str(chat_user.__name__)] = 'pending'
+                cur[chat_user.__name__] = 'pending'
                 chat_user.selected_sub_data[chunk] = st
 
         kiev = timezone('Europe/Kiev')
@@ -315,7 +372,7 @@ def change_status_subscription(bot, chat_user, status='pending'):
                         pass
                     else:
                         cur = st['status_send']
-                        cur[str(chat_user.__name__)] = status
+                        cur[chat_user.__name__] = status
                         shops[h] = st
 
                 f[1] = shops
@@ -377,16 +434,16 @@ def template_sub_print(bot, chat_user, ord):
                     # logging.info(st['status_send'])
 
                     # Initialize
-                    if not cur.get(str(chat_user.__name__)):
-                        cur[str(chat_user.__name__)] = 'pending'
+                    if not cur.get(chat_user.__name__):
+                        cur[chat_user.__name__] = 'pending'
 
-                    if cur[str(chat_user.__name__)] == 'pending':
+                    if cur[chat_user.__name__] == 'pending':
                         txt = chunk[0] + emoji.emojize('  :zzz:')
                         break
-                    if cur[str(chat_user.__name__)] == 'combined':
+                    if cur[chat_user.__name__] == 'combined':
                         txt = chunk[0] + emoji.emojize('  :check_mark:')
                         break
-                    if cur[str(chat_user.__name__)] == 'rejected':
+                    if cur[chat_user.__name__] == 'rejected':
                         txt = chunk[0] + emoji.emojize('  :cross_mark:')
                         break
 
@@ -402,11 +459,6 @@ def template_sub_print(bot, chat_user, ord):
                 logging.info('not data')
 
         bot.subscription[chat_user.selected_subscriber] = uid
-
-        # if len(uid) > 0:
-        #     pass
-        # else:
-        #     del bot.subscription[chat_user.selected_subscriber]
 
     dlv.extend([{"text": 'Принять'}, {"text": 'Отклонить'},
                 {"text": emoji.emojize(':BACK_arrow: К датам')},
@@ -460,17 +512,17 @@ def template_sub_datetime(bot, chat_user, ord):
                             logging.info(cur)
 
                             # Initialize
-                            if not cur.get(str(chat_user.__name__)):
-                                cur[str(chat_user.__name__)] = 'pending'
+                            if not cur.get(chat_user.__name__):
+                                cur[chat_user.__name__] = 'pending'
 
-                            logging.info(str(chat_user.__name__))
-                            if cur[str(chat_user.__name__)] == 'pending':
+                            logging.info(chat_user.__name__)
+                            if cur[chat_user.__name__] == 'pending':
                                 txt = userdata[0] + emoji.emojize('  :zzz:')
                                 break
-                            if cur[str(chat_user.__name__)] == 'combined':
+                            if cur[chat_user.__name__] == 'combined':
                                 txt = userdata[0] + emoji.emojize('  :check_mark:')
                                 break
-                            if cur[str(chat_user.__name__)] == 'rejected':
+                            if cur[chat_user.__name__] == 'rejected':
                                 txt = userdata[0] + emoji.emojize('  :cross_mark:')
                                 break
 
@@ -516,13 +568,13 @@ def template_shops(dict_init, chat_user):
         location = b[0]
 
         for city in dict_init['city']:
-
             if location == city[0]:
                 access = city[2]
 
-                if chat_user.__name__ in access:
+                if str(chat_user.__name__) in access:
                     adr.append([{"text": b[2]}])
                     chat_user.adr.append(b[2])
+                    logging.info(f'Append: {str(chat_user.__name__)}')
                 else:
                     pass
 
@@ -537,14 +589,15 @@ def template_shops(dict_init, chat_user):
 def template_delivery(dict_init, chat_user):
     dlv = []
     for b in dict_init['delivery']:
-        if chat_user.__name__ in b[2]:
-            pass
-        else:
+        logging.info(chat_user.__name__)
+        logging.info(b[2])
+        if str(chat_user.__name__) in b[2]:
             dlv.append(
                 {"text": b[1]}
             )
             chat_user.delivery.append(b[1])
-
+        else:
+            pass
     n = 2
     resize_dlv = [dlv[i:i + n] for i in range(0, len(dlv), n)]
     logging.info(resize_dlv)

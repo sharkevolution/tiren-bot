@@ -66,6 +66,33 @@ def load_delivery(book):
     return out_dlv
 
 
+# def load_user_delivery(book):
+#
+#     row = 2
+#     sheet = book['user_delivery']
+#     id_dlv = {}
+#
+#     for i in range(row, sheet.max_row + 1):
+#         user_ = sheet.cell(column=1, row=i).value
+#         id_delivery_ = sheet.cell(column=2, row=i).value
+#         access_ = sheet.cell(column=3, row=i).value
+#
+#         if user_ in id_dlv:
+#             t = id_dlv[user_]
+#             if access_:
+#                 t[2].append(access_)
+#             id_dlv[user_] = t
+#         else:
+#             if access_:
+#                 id_dlv[user_] = [user_, id_delivery_, [access_]]
+#             else:
+#                 id_dlv[user_] = [user_, id_delivery_, []]
+#
+#     out_dlv = [id_dlv[b] for b in id_dlv]
+#
+#     return out_dlv
+
+
 def load_weight(book):
 
     row = 2
@@ -128,6 +155,7 @@ def run():
     wb = load_workbook(logo)
     newDict['city'] = load_city(wb)
     newDict['delivery'] = load_delivery(wb)
+    # newDict['user_delivery'] = load_user_delivery(wb)
     newDict['wt'] = load_weight(wb)
     newDict['adr'] = load_address(wb)
     wb.close()

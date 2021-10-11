@@ -1,6 +1,9 @@
 import logging
 import copy
 
+FORMAT = '%(module)s - %(funcName)s -%(lineno)d - %(message)s'
+logging.basicConfig(format=FORMAT, level=logging.INFO)
+
 number_key = {'ent_one': 1, 'ent_two': 2, 'ent_three': 3, 'ent_four': 4,
               'ent_five': 5, 'ent_six': 6, 'ent_seven': 7, 'ent_eight': 8,
               'ent_nine': 9, 'ent_zero': 0, 'ent_colon': ':'}
