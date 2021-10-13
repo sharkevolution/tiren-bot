@@ -34,8 +34,8 @@ logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 FLAG_2206 = False
 
-WAVING_HAND = f"Hi {emoji.emojize(':waving_hand:')} .Коммент можно написать через точку, " \
-              f"При первом запуске добавьте перевозчиков, вер.1.0.2"
+WAVING_HAND = f"Hi {emoji.emojize(':waving_hand:')} .Коммент можно написать через точку." \
+              f"При первом запуске добавьте Перевозчиков и Города, вер.1.0.2"
 
 
 def set_webhook(data, bottoken):
