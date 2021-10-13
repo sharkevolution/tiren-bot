@@ -1340,6 +1340,7 @@ def edit_send(data, ord=None):
     logging.info(chat_user.send_list)
 
     for b in chat_user.send_list:
+        logging.info(b)
         chat_user.pull_user_commands[b] = delete_item_send
 
     message = {'chat_id': chat_id, 'text': f'Выбранный элемент будет удален', 'reply_markup': reply_markup}
