@@ -292,6 +292,8 @@ def template_tasks_to_send(tmp_dict, chat_user, rdot):
         else:
             tmp_text = ', '.join([cnt['shop'], cnt['delivery'], cnt['weight'], cnt['dlv_time'], ])
         task_list.append([{"text": tmp_text}])
+
+        logging.info(f'send list: {tmp_text}')
         chat_user.send_list.append(tmp_text)
 
     reply_markup = {"keyboard": task_list, "resize_keyboard": True, "one_time_keyboard": False}
