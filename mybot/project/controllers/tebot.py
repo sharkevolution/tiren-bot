@@ -36,7 +36,7 @@ FLAG_2206 = False
 
 WAVING_HAND = f"Hi {emoji.emojize(':waving_hand:')} вер.1.0.3b. " \
               f"При первом запуске добавьте Перевозчиков и Города." \
-                f".Коммент можно написать через точку #"
+                f".Коммент можно написать через хеш #"
 
 
 def set_webhook(data, bottoken):
