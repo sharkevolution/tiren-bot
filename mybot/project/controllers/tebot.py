@@ -1788,7 +1788,6 @@ def do_echo():
     # logging.info('old_message')
     # logging.info(data)
 
-
 if __name__ == '__main__':
     #URL_BOT = {"url": "https://tirentest.herokuapp.com/api/v1/echo"}
     URL_BOT = {"url": "https://tiren-bot.herokuapp.com/api/v1/echo"}
